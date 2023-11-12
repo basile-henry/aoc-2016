@@ -21,6 +21,14 @@
     exit(1);                                                                   \
   } while (0)
 
+#define assert_msg(cond, ...)                                                  \
+  do {                                                                         \
+    if (!(cond)) {                                                                \
+      fprintf(stderr, __VA_ARGS__);                                            \
+      exit(1);                                                                 \
+    }                                                                          \
+  } while (0)
+
 ///////////////////////////////////////////////////////////////////////////////
 // Int types
 
@@ -33,6 +41,22 @@ typedef int16_t iu16;
 typedef int32_t iu32;
 typedef int64_t iu64;
 typedef size_t usize;
+
+private
+inline u8 u64_to_u8(u64 x) {
+  assert_msg(x <= UINT8_MAX, "%zd is greater than %d (max u8)\n", x,
+             UINT8_MAX);
+
+  return (u8)x;
+}
+
+private
+inline u16 u64_to_u16(u64 x) {
+  assert_msg(x <= UINT16_MAX, "%zd is greater than %d (max u16)\n", x,
+             UINT16_MAX);
+
+  return (u16)x;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Hash
@@ -241,6 +265,18 @@ private
 inline bool Span_starts_with(Span x, Span start) {
   return start.len <= x.len &&
          strncmp((char *)x.dat, (char *)start.dat, start.len) == 0;
+}
+
+private
+inline Span Span_trim_start_whitespace(Span x) {
+  usize offset = 0;
+
+  while (offset < x.len && (x.dat[offset] == ' ' || x.dat[offset] == '\n' ||
+                            x.dat[offset] == '\t')) {
+    offset++;
+  }
+
+  return Span_slice(x, offset, x.len);
 }
 
 private
