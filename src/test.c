@@ -1,14 +1,14 @@
 #include "baz.h"
 
-Hash DumbHash(const void *x) { return *(Hash *)x % 2; }
+Hash dumb_hash(const usize *x) { return *x % 2; }
 
-define_array(HMKeys, usize, 4);
-define_array(HMValues, u16, 4);
+define_hash_map(SpanHashMap, Span, usize, 32, Span_hash, Span_eq);
+define_hash_map(DumbHashMap, usize, usize, 8, dumb_hash, usize_eq);
 
 static void test_hash_map(void) {
   // Test Span keys
   {
-    HashMap hm = HashMap_alloc(Span_hash, Span_eq, 32);
+    SpanHashMap hm = {0};
 
     Span x_key = Span_from_str("x");
     usize x_val = 42;
@@ -19,66 +19,64 @@ static void test_hash_map(void) {
     Span z_key = Span_from_str("z");
     usize z_val = 27;
 
-    HashMap_insert(&hm, &x_key, &x_val);
-    assert(*((usize *)HashMap_lookup(hm, &x_key)) == 42);
+    {
+      SpanHashMap_insert(&hm, x_key, x_val);
+      SpanHashMapLookup res = SpanHashMap_lookup(&hm, &x_key);
+      assert(res.valid);
+      assert(*res.dat == 42);
+    }
 
-    HashMap_insert(&hm, &y_key, &y_val);
-    assert(*((usize *)HashMap_lookup(hm, &y_key)) == 32);
+    {
+      SpanHashMap_insert(&hm, y_key, y_val);
+      SpanHashMapLookup res = SpanHashMap_lookup(&hm, &y_key);
+      assert(res.valid);
+      assert(*res.dat == 32);
+    }
 
-    HashMap_insert(&hm, &z_key, &z_val);
-    assert(*((usize *)HashMap_lookup(hm, &z_key)) == 27);
-
-    HashMap_free(hm);
+    {
+      SpanHashMap_insert(&hm, z_key, z_val);
+      SpanHashMapLookup res = SpanHashMap_lookup(&hm, &z_key);
+      assert(res.valid);
+      assert(*res.dat == 27);
+    }
   }
 
   {
-    HashMap hm = HashMap_alloc(DumbHash, usize_eq, 8);
+    DumbHashMap *hm = (DumbHashMap *)calloc(1, sizeof(DumbHashMap));
 
     usize x = 3;
-    HashMap_insert(&hm, &x, &x);
+    DumbHashMap_insert(hm, x, x);
 
     usize y = 5;
-    HashMap_insert(&hm, &y, &y);
+    DumbHashMap_insert(hm, y, y);
 
     usize z = 7;
-    HashMap_insert(&hm, &z, &z);
+    DumbHashMap_insert(hm, z, z);
 
     usize a = 4;
-    HashMap_insert(&hm, &a, &a);
+    DumbHashMap_insert(hm, a, a);
+    DumbHashMap_insert(hm, a, a - 1); // Overwriting
 
     usize b = 6;
-    HashMap_insert(&hm, &b, &b);
+    DumbHashMap_insert(hm, b, b);
 
     usize c = 8;
-    HashMap_insert(&hm, &c, &c);
+    DumbHashMap_insert(hm, c, c);
 
     usize d = 9;
-    HashMap_insert(&hm, &d, &d);
+    DumbHashMap_insert(hm, d, d);
 
-    assert(*(usize *)HashMap_remove(&hm, &a).value == a);
+    {
+      DumbHashMapRemove res = DumbHashMap_remove(hm, &a);
+      assert(res.valid);
+      assert(res.dat.fst == a);
+      assert(res.dat.snd == a - 1);
+    }
 
-    HashMap_free(hm);
-  }
-
-  // Statically allocated HashMap
-  {
-    HashEntry hm_entries[4] = {0};
-    HashMap hm = {
-        .get_hash = usize_hash,
-        .get_eq = usize_eq,
-        .capacity = 4,
-        .count = 0,
-        .dat = hm_entries,
-    };
-
-    HMKeys keys = {.len = 0};
-    HMValues values = {.len = 0};
-
-    HashMap_insert(&hm, HMKeys_push(&keys, 12345), HMValues_push(&values, 37));
-    HashMap_insert(&hm, HMKeys_push(&keys, 8398), HMValues_push(&values, 12));
-    HashMap_insert(&hm, HMKeys_push(&keys, 5432), HMValues_push(&values, 1));
-    HashMap_insert(&hm, HMKeys_push(&keys, 6839), HMValues_push(&values, 2));
-    HashMap_insert(&hm, &keys.dat[0], &values.dat[1]); // Overwriting key 0
+    {
+      DumbHashMapRemove res = DumbHashMap_remove(hm, &a);
+      assert(!res.valid);
+    }
   }
 }
 

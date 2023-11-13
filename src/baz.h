@@ -92,11 +92,14 @@ inline void FxHasher_add(FxHasher *hasher, usize x) {
 }
 
 private
-Hash usize_hash(const void *x) {
+Hash usize_hash(const usize *x) {
   FxHasher hasher = {0};
-  FxHasher_add(&hasher, *(usize *)x);
+  FxHasher_add(&hasher, *x);
   return hasher;
 }
+
+private
+bool usize_eq(const usize *a, const usize *b) { return *a == *b; }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Tuples
@@ -481,139 +484,124 @@ SpanSplitIteratorNext SpanSplitIterator_next(SpanSplitIterator *it) {
 ////////////////////////////////////////////////////////////////////////////////
 // HashMap
 
-typedef struct {
-  const void *key;
-  void *value;
-} HashEntry;
-
-private
-inline bool HashEntry_occupied(HashEntry entry) { return entry.key != NULL; }
-
-typedef Hash (*HashFunction)(const void *key);
-typedef bool (*EqFunction)(const void *a, const void *b);
-
-private
-bool usize_eq(const void *a_ptr, const void *b_ptr) {
-  usize a = *(usize *)a_ptr;
-  usize b = *(usize *)b_ptr;
-  return a == b;
-}
-
-typedef struct {
-  HashFunction get_hash;
-  EqFunction get_eq;
-  u32 capacity;
-  u32 count;
-  HashEntry *dat;
-} HashMap;
-
-private
-inline HashMap HashMap_alloc(HashFunction hash, EqFunction eq, usize capacity) {
-  HashEntry *dat = (HashEntry *)calloc(capacity, sizeof(HashEntry));
-  HashMap hm = {.get_hash = hash,
-                .get_eq = eq,
-                .capacity = (u32)capacity,
-                .count = 0,
-                .dat = dat};
-  return hm;
-}
-
-private
-inline void HashMap_free(HashMap hm) { free(hm.dat); }
-
-private
-usize HashMap_entry_ix(HashMap hm, const void *key) {
-  Hash hash = hm.get_hash(key);
-
-  usize start_ix = hash % hm.capacity;
-
-  usize ix = start_ix;
-  while (HashEntry_occupied(hm.dat[ix]) && !hm.get_eq(hm.dat[ix].key, key)) {
-    ix = (ix + 1) % hm.capacity;
-
-    assert(ix != start_ix); // Ran out of space
-  }
-
-  return ix;
-}
-
-private
-inline HashEntry *HashMap_entry(HashMap hm, const void *key) {
-  usize ix = HashMap_entry_ix(hm, key);
-  return &hm.dat[ix];
-}
-
-private
-bool HashMap_contains(HashMap hm, const void *key) {
-  return HashEntry_occupied(*HashMap_entry(hm, key));
-}
-
-private
-void *HashMap_lookup(HashMap hm, const void *key) {
-  HashEntry *entry = HashMap_entry(hm, key);
-  if (HashEntry_occupied(*entry)) {
-    return entry->value;
-  } else {
-    return NULL;
-  }
-}
-
-// Return if it is overwriting a previous entry
-private
-bool HashMap_insert(HashMap *hm, const void *key, void *value) {
-  HashEntry *entry = HashMap_entry(*hm, key);
-  bool was_occupied = HashEntry_occupied(*entry);
-
-  entry->key = key;
-  entry->value = value;
-
-  if (!was_occupied) {
-    hm->count += 1;
-  }
-
-  return was_occupied;
-}
-
-// Implentation based on https://en.wikipedia.org/wiki/Open_addressing
-private
-HashEntry HashMap_remove(HashMap *hm, const void *key) {
-  usize i = HashMap_entry_ix(*hm, key);
-  HashEntry ret = hm->dat[i];
-
-  if (!HashEntry_occupied(ret)) {
-    return ret;
-  }
-
-  hm->count -= 1;
-  hm->dat[i].key = NULL;
-
-  usize j = i;
-  while (true) {
-    j = (j + 1) % hm->capacity;
-
-    if (!HashEntry_occupied(hm->dat[j])) {
-      return ret;
-    }
-
-    usize k = hm->get_hash(hm->dat[j].key) % hm->capacity;
-
-    // determine if k lies cyclically in (i,j]
-    // i ≤ j: |    i..k..j    |
-    // i > j: |.k..j     i....| or |....j     i..k.|
-    if (i <= j) {
-      if ((i < k) && (k <= j)) {
-        continue;
-      }
-    } else {
-      if ((i < k) || (k <= j)) {
-        continue;
-      }
-    }
-
-    hm->dat[i] = hm->dat[j];
-    hm->dat[j].key = NULL;
-    i = j;
-  }
-}
+// Define a hash_map with N elements, keys K, values V
+// K_HASH is a function: Hash func(const K *key)
+// K_EQ is a function: bool func(const K *a, const K *b)
+#define define_hash_map(H_NAME, K, V, N, K_HASH, K_EQ)                         \
+  typedef struct {                                                             \
+    usize count;                                                               \
+    bool occupied[N];                                                          \
+    K keys[N];                                                                 \
+    V values[N];                                                               \
+  } H_NAME;                                                                    \
+                                                                               \
+private                                                                        \
+  usize H_NAME##_entry_ix(const H_NAME *hm, const K *key) {                    \
+    Hash hash = K_HASH(key);                                                   \
+                                                                               \
+    usize start_ix = hash % N;                                                 \
+                                                                               \
+    usize ix = start_ix;                                                       \
+    while (hm->occupied[ix] && !K_EQ(&hm->keys[ix], key)) {                    \
+      ix = (ix + 1) % N;                                                       \
+                                                                               \
+      assert(ix != start_ix); /* Ran out of space */                           \
+    }                                                                          \
+                                                                               \
+    return ix;                                                                 \
+  }                                                                            \
+                                                                               \
+private                                                                        \
+  inline bool H_NAME##_contains(const H_NAME *hm, const K *key) {              \
+    usize ix = H_NAME##_entry_ix(hm, key);                                     \
+    return hm->occupied[ix];                                                   \
+  }                                                                            \
+                                                                               \
+  typedef Option(V *) H_NAME##Lookup;                                          \
+private                                                                        \
+  H_NAME##Lookup H_NAME##_lookup(H_NAME *hm, const K *key) {                   \
+    usize ix = H_NAME##_entry_ix(hm, key);                                     \
+    if (hm->occupied[ix]) {                                                    \
+      H_NAME##Lookup ret = {                                                   \
+          .dat = &hm->values[ix],                                              \
+          .valid = true,                                                       \
+      };                                                                       \
+      return ret;                                                              \
+    } else {                                                                   \
+      H_NAME##Lookup ret = {                                                   \
+          .valid = false,                                                      \
+      };                                                                       \
+      return ret;                                                              \
+    }                                                                          \
+  }                                                                            \
+                                                                               \
+  /* Return if it is overwriting a previous entry */                           \
+private                                                                        \
+  bool H_NAME##_insert(H_NAME *hm, K key, V value) {                           \
+    usize ix = H_NAME##_entry_ix(hm, &key);                                    \
+    bool was_occupied = hm->occupied[ix];                                      \
+                                                                               \
+    hm->occupied[ix] = true;                                                   \
+    hm->keys[ix] = key;                                                        \
+    hm->values[ix] = value;                                                    \
+                                                                               \
+    if (!was_occupied) {                                                       \
+      hm->count += 1;                                                          \
+    }                                                                          \
+                                                                               \
+    return was_occupied;                                                       \
+  }                                                                            \
+                                                                               \
+  /* Implementation based on https://en.wikipedia.org/wiki/Open_addressing */  \
+  typedef Option(T2(K, V)) H_NAME##Remove;                                     \
+private                                                                        \
+  H_NAME##Remove H_NAME##_remove(H_NAME *hm, const K *key) {                   \
+    usize i = H_NAME##_entry_ix(hm, key);                                      \
+    H_NAME##Remove ret = {                                                     \
+        .valid = false,                                                        \
+    };                                                                         \
+                                                                               \
+    if (!hm->occupied[i]) {                                                    \
+      return ret;                                                              \
+    }                                                                          \
+                                                                               \
+    ret.valid = true;                                                          \
+    ret.dat.fst = hm->keys[i];                                                 \
+    ret.dat.snd = hm->values[i];                                               \
+                                                                               \
+    hm->count -= 1;                                                            \
+    hm->occupied[i] = false;                                                   \
+                                                                               \
+    usize j = i;                                                               \
+    while (true) {                                                             \
+      j = (j + 1) % N;                                                         \
+                                                                               \
+      if (!hm->occupied[j]) {                                                  \
+        return ret;                                                            \
+      }                                                                        \
+                                                                               \
+      usize k = K_HASH(&hm->keys[j]) % N;                                      \
+                                                                               \
+      /* determine if k lies cyclically in (i,j]                               \
+         i ≤ j: |    i..k..j    |                                            \
+         i > j: |.k..j     i....| or |....j     i..k.| */                      \
+      if (i <= j) {                                                            \
+        if ((i < k) && (k <= j)) {                                             \
+          continue;                                                            \
+        }                                                                      \
+      } else {                                                                 \
+        if ((i < k) || (k <= j)) {                                             \
+          continue;                                                            \
+        }                                                                      \
+      }                                                                        \
+                                                                               \
+      hm->keys[i] = hm->keys[j];                                               \
+      hm->values[i] = hm->values[j];                                           \
+      hm->occupied[j] = false;                                                 \
+      i = j;                                                                   \
+    }                                                                          \
+  }                                                                            \
+                                                                               \
+  typedef H_NAME H_NAME##_unused_trailing_semicolon_hack
 
 #endif // BAZ_HEADER

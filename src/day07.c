@@ -47,6 +47,7 @@ static bool ip_supports_tls(Span ip) {
 }
 
 define_array(SpanArray, Span, 32);
+define_hash_map(SpanHashSet, Span, u8, 32, Span_hash, Span_eq);
 
 static bool ip_supports_ssl(Span ip) {
   SpanSplitIterator square_it = {
@@ -56,18 +57,8 @@ static bool ip_supports_ssl(Span ip) {
 
   bool in_hypernet = false;
 
-  SpanArray in_abas = {.len = 0};
-  SpanArray out_abas = {.len = 0};
-
-  // Span keys, NULL values
-  HashEntry out_aba_entries[32] = {0};
-  HashMap out_abas_set = {
-      .get_hash = Span_hash,
-      .get_eq = Span_eq,
-      .capacity = 32,
-      .count = 0,
-      .dat = out_aba_entries,
-  };
+  SpanArray in_abas = {0};
+  SpanHashSet out_abas_set = {0};
 
   SpanSplitIteratorNext section = SpanSplitIterator_next(&square_it);
   while (section.valid) {
@@ -81,7 +72,7 @@ static bool ip_supports_ssl(Span ip) {
           if (in_hypernet) {
             SpanArray_push(&in_abas, aba);
           } else {
-            HashMap_insert(&out_abas_set, SpanArray_push(&out_abas, aba), NULL);
+            SpanHashSet_insert(&out_abas_set, aba, 0);
           }
         }
       }
@@ -102,7 +93,7 @@ static bool ip_supports_ssl(Span ip) {
         .len = 3,
     };
 
-    if (HashMap_contains(out_abas_set, &bab)) {
+    if (SpanHashSet_contains(&out_abas_set, &bab)) {
       return true;
     }
   }
