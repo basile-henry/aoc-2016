@@ -42,6 +42,7 @@ static void test_hash_map(void) {
   }
 
   {
+    // Test heap allocating
     DumbHashMap *hm = (DumbHashMap *)calloc(1, sizeof(DumbHashMap));
 
     usize x = 3;
@@ -54,8 +55,8 @@ static void test_hash_map(void) {
     DumbHashMap_insert(hm, z, z);
 
     usize a = 4;
-    DumbHashMap_insert(hm, a, a);
-    DumbHashMap_insert(hm, a, a - 1); // Overwriting
+    assert(!DumbHashMap_insert(hm, a, a));
+    assert(DumbHashMap_insert(hm, a, a - 1)); // Overwriting
 
     usize b = 6;
     DumbHashMap_insert(hm, b, b);

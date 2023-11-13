@@ -79,7 +79,7 @@ typedef usize Hash;
 #if UINTPTR_MAX == 0xFFFFFFFF
 #define K 0x9e3779b9
 #elif UINTPTR_MAX == 0xFFFFFFFFFFFFFFFFu
-#define K 0x517cc1b727220a95
+#define K 0x517cc1b727220a95u
 #else
 #error Only 32 and 64 bits archs supported
 #endif
