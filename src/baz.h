@@ -23,7 +23,7 @@
 
 #define assert_msg(cond, ...)                                                  \
   do {                                                                         \
-    if (!(cond)) {                                                                \
+    if (!(cond)) {                                                             \
       fprintf(stderr, __VA_ARGS__);                                            \
       exit(1);                                                                 \
     }                                                                          \
@@ -44,8 +44,7 @@ typedef size_t usize;
 
 private
 inline u8 u64_to_u8(u64 x) {
-  assert_msg(x <= UINT8_MAX, "%zd is greater than %d (max u8)\n", x,
-             UINT8_MAX);
+  assert_msg(x <= UINT8_MAX, "%zd is greater than %d (max u8)\n", x, UINT8_MAX);
 
   return (u8)x;
 }
@@ -56,6 +55,17 @@ inline u16 u64_to_u16(u64 x) {
              UINT16_MAX);
 
   return (u16)x;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Mem utils
+
+private
+void swap(void *__restrict a, void *__restrict b, usize bytes) {
+  u8 temp[bytes]; // VLA
+  memcpy(temp, a, bytes);
+  memcpy(a, b, bytes);
+  memcpy(b, temp, bytes);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -124,9 +134,6 @@ For example `define_array(WordsArray, Span, 32);` defines the new type
   } A_NAME;                                                                    \
                                                                                \
 private                                                                        \
-  usize A_NAME##_capacity = N;                                                 \
-                                                                               \
-private                                                                        \
   T *A_NAME##_push(A_NAME *array, T x) {                                       \
     assert(array->len < N);                                                    \
     T *slot = &array->dat[array->len];                                         \
@@ -155,6 +162,129 @@ private                                                                        \
   }                                                                            \
                                                                                \
   typedef A_NAME A_NAME##_unused_trailing_semicolon_hack
+
+////////////////////////////////////////////////////////////////////////////////
+// Binary Heap
+
+// COMP_FUN of the shape: int cmp(const T *a, const T *b);
+// comparison function which returns​a negative integer value if the first
+// argument is less than the second, a positive integer value if the first
+// argument is greater than the second and zero if the arguments are equivalent.
+#define define_binary_heap(B_NAME, T, N, COMP_FUN)                             \
+  typedef struct {                                                             \
+    usize len;                                                                 \
+    T dat[N];                                                                  \
+  } B_NAME;                                                                    \
+                                                                               \
+  /* Implementation from https://en.wikipedia.org/wiki/Binary_heap#Insert */   \
+private                                                                        \
+  void B_NAME##_insert(B_NAME *binary_heap, T x) {                             \
+    /* Add the element to the bottom level of the heap at the leftmost open    \
+     * space. */                                                               \
+    assert(binary_heap->len < N);                                              \
+    usize ix = binary_heap->len;                                               \
+    binary_heap->dat[ix] = x;                                                  \
+    binary_heap->len += 1;                                                     \
+                                                                               \
+    if (binary_heap->len == 1) {                                               \
+      return;                                                                  \
+    }                                                                          \
+                                                                               \
+    /* Compare the added element with its parent; if they are in the correct   \
+     * order, stop. */                                                         \
+    usize parent = (ix - 1) / 2;                                               \
+                                                                               \
+    while (true) {                                                             \
+      int cmp = COMP_FUN(&binary_heap->dat[parent], &binary_heap->dat[ix]);    \
+                                                                               \
+      if (cmp >= 0) {                                                          \
+        return;                                                                \
+      }                                                                        \
+                                                                               \
+      /* If not, swap the element with its parent and return to the previous   \
+       * step. */                                                              \
+      swap(&binary_heap->dat[ix], &binary_heap->dat[parent], sizeof(T));       \
+                                                                               \
+      ix = parent;                                                             \
+      if (ix == 0) {                                                           \
+        return;                                                                \
+      }                                                                        \
+                                                                               \
+      parent = (ix - 1) / 2;                                                   \
+    }                                                                          \
+  }                                                                            \
+                                                                               \
+  typedef Option(T) B_NAME##Extract;                                           \
+  /* Implementation from https://en.wikipedia.org/wiki/Binary_heap#Extract */  \
+private                                                                        \
+  B_NAME##Extract B_NAME##_extract(B_NAME *binary_heap) {                      \
+    /* Initialise as not valid */                                              \
+    B_NAME##Extract ret = {                                                    \
+        .valid = false,                                                        \
+    };                                                                         \
+                                                                               \
+    if (binary_heap->len == 0) {                                               \
+      return ret;                                                              \
+    }                                                                          \
+    ret.valid = true;                                                          \
+    ret.dat = binary_heap->dat[0];                                             \
+                                                                               \
+    binary_heap->len--;                                                        \
+    if (binary_heap->len == 0) {                                               \
+      return ret;                                                              \
+    }                                                                          \
+                                                                               \
+    /* Replace the root of the heap with the last element on the last level.   \
+     */                                                                        \
+    binary_heap->dat[0] = binary_heap->dat[binary_heap->len];                  \
+                                                                               \
+    usize ix = 0;                                                              \
+    while (true) {                                                             \
+      /* No left child, we're done */                                          \
+      if (ix * 2 + 1 >= binary_heap->len) {                                    \
+        return ret;                                                            \
+      }                                                                        \
+                                                                               \
+      int cmp_l =                                                              \
+          COMP_FUN(&binary_heap->dat[ix], &binary_heap->dat[ix * 2 + 1]);      \
+                                                                               \
+      /* No right child, check with left if valid state, then we're done */    \
+      if (ix * 2 + 2 >= binary_heap->len) {                                    \
+        if (cmp_l < 0) {                                                       \
+          swap(&binary_heap->dat[ix], &binary_heap->dat[ix * 2 + 1],           \
+               sizeof(T));                                                     \
+        }                                                                      \
+        return ret;                                                            \
+      }                                                                        \
+                                                                               \
+      int cmp_r =                                                              \
+          COMP_FUN(&binary_heap->dat[ix], &binary_heap->dat[ix * 2 + 2]);      \
+                                                                               \
+      /* Compare the new root with its children; if they are in the correct    \
+       * order, stop. */                                                       \
+      if (cmp_l >= 0 && cmp_r >= 0) {                                          \
+        return ret;                                                            \
+      }                                                                        \
+                                                                               \
+      /* If not, swap the element with one of its children and return to the   \
+       * previous step. */                                                     \
+      int cmp_c = COMP_FUN(&binary_heap->dat[ix * 2 + 1],                      \
+                           &binary_heap->dat[ix * 2 + 2]);                     \
+                                                                               \
+      if (cmp_c < 0) {                                                         \
+        /* Right is greater */                                                 \
+        swap(&binary_heap->dat[ix], &binary_heap->dat[ix * 2 + 2], sizeof(T)); \
+        ix = ix * 2 + 2;                                                       \
+                                                                               \
+      } else {                                                                 \
+        /* Left is greater */                                                  \
+        swap(&binary_heap->dat[ix], &binary_heap->dat[ix * 2 + 1], sizeof(T)); \
+        ix = ix * 2 + 1;                                                       \
+      }                                                                        \
+    }                                                                          \
+  }                                                                            \
+                                                                               \
+  typedef B_NAME B_NAME##_unused_trailing_semicolon_hack
 
 ////////////////////////////////////////////////////////////////////////////////
 // Span
