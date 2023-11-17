@@ -19,12 +19,15 @@ day09: src/day09.c
 day10: src/day10.c
 	$(CC) $(CFLAGS) src/day10.c -o day10
 
+day11: src/day11.c
+	$(CC) $(CFLAGS) src/day11.c -o day11
+
 test: src/test.c
 	$(CC) $(CFLAGS) src/test.c -o test
 
 .PHONY: all
-all: test day04 day06 day07 day08 day09 day10
+all: test day04 day06 day07 day08 day09 day10 day11
 
 .PHONY: clean
 clean:
-	rm -f ./test ./day04 ./day06 ./day07 ./day08 ./day09 ./day10
+	rm -f ./test ./day04 ./day06 ./day07 ./day08 ./day09 ./day10 ./day11
