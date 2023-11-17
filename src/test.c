@@ -132,9 +132,34 @@ static void test_binary_heap(void) {
   }
 }
 
+define_bit_set(BitSet, u16, 3);
+
+static void test_bit_set(void) {
+  BitSet s = {0};
+
+  BitSet_insert(&s, 42);
+  BitSet_insert(&s, 42);
+  BitSet_insert(&s, 36);
+  assert(BitSet_contains(s, 36));
+  assert(BitSet_contains(s, 42));
+  assert(!BitSet_contains(s, 27));
+
+  BitSet t = {0};
+  assert(BitSet_is_subset(t, s));
+  assert(!BitSet_is_subset(s, t));
+
+  BitSet_insert(&t, 36);
+  assert(BitSet_is_subset(t, s));
+
+  BitSet_insert(&t, 42);
+  assert(BitSet_is_subset(t, s));
+  assert(BitSet_is_subset(s, t));
+}
+
 int main(void) {
   test_binary_heap();
   test_hash_map();
+  test_bit_set();
 
   return 0;
 }

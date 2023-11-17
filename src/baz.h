@@ -101,6 +101,17 @@ Hash usize_hash(const usize *x) {
 private
 bool usize_eq(const usize *a, const usize *b) { return *a == *b; }
 
+private
+int usize_cmp(const usize *a, const usize *b) {
+  return *a < *b ? -1 : *a == *b ? 0 : 1;
+}
+
+private
+bool u8_eq(const u8 *a, const u8 *b) { return *a == *b; }
+
+private
+int u8_cmp(const u8 *a, const u8 *b) { return *a < *b ? -1 : *a == *b ? 0 : 1; }
+
 ////////////////////////////////////////////////////////////////////////////////
 // Tuples
 
@@ -164,11 +175,12 @@ private                                                                        \
     return ret;                                                                \
   }                                                                            \
                                                                                \
-  typedef A_NAME A_NAME##_unused_trailing_semicolon_hack
+  void REQUIRE_SEMICOLON()
 
 ////////////////////////////////////////////////////////////////////////////////
 // Binary Heap
 
+// A Max Heap
 // COMP_FUN of the shape: int cmp(const T *a, const T *b);
 // comparison function which returns​a negative integer value if the first
 // argument is less than the second, a positive integer value if the first
@@ -287,7 +299,7 @@ private                                                                        \
     }                                                                          \
   }                                                                            \
                                                                                \
-  typedef B_NAME B_NAME##_unused_trailing_semicolon_hack
+  void REQUIRE_SEMICOLON()
 
 ////////////////////////////////////////////////////////////////////////////////
 // Span
@@ -331,22 +343,18 @@ private
 void Span_print(Span span) { fwrite(span.dat, 1, span.len, stdout); }
 
 private
-Hash Span_hash(const void *span_ptr) {
-  Span span = *((Span *)span_ptr);
+Hash Span_hash(const Span *span) {
   FxHasher hasher = {0};
 
-  for (usize i = 0; i < span.len; i++) {
-    FxHasher_add(&hasher, (usize)span.dat[i]);
+  for (usize i = 0; i < span->len; i++) {
+    FxHasher_add(&hasher, (usize)span->dat[i]);
   }
 
   return hasher;
 }
 
 private
-bool Span_eq(const void *a_ptr, const void *b_ptr) {
-  Span *a = (Span *)a_ptr;
-  Span *b = (Span *)b_ptr;
-
+bool Span_eq(const Span *a, const Span *b) {
   return a->len == b->len && memcmp(a->dat, b->dat, a->len) == 0;
 }
 
@@ -552,6 +560,22 @@ private                                                                        \
     return was_occupied;                                                       \
   }                                                                            \
                                                                                \
+private                                                                        \
+  V *H_NAME##_insert_modify(H_NAME *hm, K key, V def) {                        \
+    usize ix = H_NAME##_entry_ix(hm, &key);                                    \
+    bool was_occupied = hm->occupied[ix];                                      \
+                                                                               \
+    hm->occupied[ix] = true;                                                   \
+    hm->keys[ix] = key;                                                        \
+                                                                               \
+    if (!was_occupied) {                                                       \
+      hm->count += 1;                                                          \
+      hm->values[ix] = def;                                                    \
+    }                                                                          \
+                                                                               \
+    return &hm->values[ix];                                                    \
+  }                                                                            \
+                                                                               \
   /* Implementation based on https://en.wikipedia.org/wiki/Open_addressing */  \
   typedef Option(T2(K, V)) H_NAME##Remove;                                     \
 private                                                                        \
@@ -602,6 +626,81 @@ private                                                                        \
     }                                                                          \
   }                                                                            \
                                                                                \
-  typedef H_NAME H_NAME##_unused_trailing_semicolon_hack
+  void REQUIRE_SEMICOLON()
+
+////////////////////////////////////////////////////////////////////////////////
+// BitSet
+
+#define define_bit_set(B_NAME, T, N)                                           \
+  typedef struct {                                                             \
+    T dat[N];                                                                  \
+  } B_NAME;                                                                    \
+                                                                               \
+private                                                                        \
+  usize T##_bits = 8 * sizeof(T);                                              \
+                                                                               \
+private                                                                        \
+  usize B_NAME##_size = N * 8 * sizeof(T);                                     \
+                                                                               \
+private                                                                        \
+  inline void B_NAME##_insert(B_NAME *bs, usize x) {                           \
+    assert(x / T##_bits < N);                                                  \
+    bs->dat[x / T##_bits] |= ((T)1) << (x % T##_bits);                         \
+  }                                                                            \
+                                                                               \
+private                                                                        \
+  inline bool B_NAME##_contains(B_NAME bs, usize x) {                          \
+    assert(x / T##_bits < N);                                                  \
+    return (bool)((bs.dat[x / T##_bits] >> (x % T##_bits)) & 1);               \
+  }                                                                            \
+                                                                               \
+private                                                                        \
+  inline void B_NAME##_remove(B_NAME *bs, usize x) {                           \
+    assert(x / T##_bits < N);                                                  \
+    bs->dat[x / T##_bits] &= ~(((T)1) << (x % T##_bits));                      \
+  }                                                                            \
+                                                                               \
+private                                                                        \
+  bool B_NAME##_eq(B_NAME a, B_NAME b) {                                       \
+    for (usize i = 0; i < N; i++) {                                            \
+      if (a.dat[i] != b.dat[i]) {                                              \
+        return false;                                                          \
+      }                                                                        \
+    }                                                                          \
+    return true;                                                               \
+  }                                                                            \
+                                                                               \
+private                                                                        \
+  B_NAME B_NAME##_union(B_NAME a, B_NAME b) {                                  \
+    for (usize i = 0; i < N; i++) {                                            \
+      a.dat[i] |= b.dat[i];                                                    \
+    }                                                                          \
+    return a;                                                                  \
+  }                                                                            \
+                                                                               \
+private                                                                        \
+  B_NAME B_NAME##_intersection(B_NAME a, B_NAME b) {                           \
+    for (usize i = 0; i < N; i++) {                                            \
+      a.dat[i] &= b.dat[i];                                                    \
+    }                                                                          \
+    return a;                                                                  \
+  }                                                                            \
+                                                                               \
+  /* Is "a" a subset of "b" */                                                 \
+private                                                                        \
+  inline bool B_NAME##_is_subset(B_NAME a, B_NAME b) {                         \
+    return B_NAME##_eq(a, B_NAME##_intersection(a, b));                        \
+  }                                                                            \
+                                                                               \
+private                                                                        \
+  inline usize B_NAME##_count(B_NAME a) {                                      \
+    usize x = 0;                                                               \
+    for (usize i = 0; i < N; i++) {                                            \
+      x += (usize)__builtin_popcount(a.dat[i]);                                \
+    }                                                                          \
+    return x;                                                                  \
+  }                                                                            \
+                                                                               \
+  void REQUIRE_SEMICOLON()
 
 #endif // BAZ_HEADER
