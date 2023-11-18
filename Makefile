@@ -1,4 +1,6 @@
 CFLAGS = -g -O3 -std=c99 \
+	-Wno-gnu-statement-expression \
+	-Wno-gnu-auto-type \
 	-pedantic -Wall -Wextra -Wconversion -Werror
 
 day04: src/day04.c
@@ -22,12 +24,15 @@ day10: src/day10.c
 day11: src/day11.c
 	$(CC) $(CFLAGS) src/day11.c -o day11
 
+day12: src/day12.c
+	$(CC) $(CFLAGS) src/day12.c -o day12
+
 test: src/test.c
 	$(CC) $(CFLAGS) src/test.c -o test
 
 .PHONY: all
-all: test day04 day06 day07 day08 day09 day10 day11
+all: test day04 day06 day07 day08 day09 day10 day11 day12
 
 .PHONY: clean
 clean:
-	rm -f ./test ./day04 ./day06 ./day07 ./day08 ./day09 ./day10 ./day11
+	rm -f ./test ./day04 ./day06 ./day07 ./day08 ./day09 ./day10 ./day11 ./day12
