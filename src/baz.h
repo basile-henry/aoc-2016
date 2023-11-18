@@ -37,9 +37,9 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 typedef int8_t i8;
-typedef int16_t iu16;
-typedef int32_t iu32;
-typedef int64_t iu64;
+typedef int16_t i16;
+typedef int32_t i32;
+typedef int64_t i64;
 typedef size_t usize;
 
 private
@@ -129,6 +129,8 @@ int u8_cmp(const u8 *a, const u8 *b) { return *a < *b ? -1 : *a == *b ? 0 : 1; }
     T dat;                                                                     \
     bool valid;                                                                \
   }
+
+#define UNWRAP(E) ({ __auto_type res = E; assert(res.valid);  res.dat; })
 
 ////////////////////////////////////////////////////////////////////////////////
 // Array
@@ -353,9 +355,15 @@ Hash Span_hash(const Span *span) {
   return hasher;
 }
 
+// Intended for generic equality
 private
 bool Span_eq(const Span *a, const Span *b) {
   return a->len == b->len && memcmp(a->dat, b->dat, a->len) == 0;
+}
+
+private bool Span_match(const Span *x, const char *ref) {
+  Span y = Span_from_str(ref);
+  return Span_eq(x, &y);
 }
 
 // Slice x[from..to] which is inclusive from and exclusive to
@@ -392,6 +400,32 @@ SpanParseU64 Span_parse_u64(Span x, int base) {
   }
 
   SpanParseU64 ret = {
+      .dat =
+          {
+              .fst = res,
+              .snd = Span_slice(x, (usize)end - (usize)x.dat, x.len),
+          },
+      .valid = true,
+  };
+  return ret;
+}
+
+typedef Option(T2(i64, Span)) SpanParseI64;
+private
+SpanParseI64 Span_parse_i64(Span x, int base) {
+  errno = 0;
+  char *end;
+  const i64 res = strtol((char *)x.dat, &end, base);
+  assert(errno == 0);
+
+  if (x.dat == (u8 *)end) {
+    SpanParseI64 ret = {
+        .valid = false,
+    };
+    return ret;
+  }
+
+  SpanParseI64 ret = {
       .dat =
           {
               .fst = res,
@@ -459,6 +493,22 @@ typedef struct {
   Span rest;
   u8 sep;
 } SpanSplitIterator;
+
+private SpanSplitIterator Span_split_lines(Span x) {
+  SpanSplitIterator s = {
+    .rest = x,
+    .sep = (u8) '\n',
+  };
+  return s;
+}
+
+private SpanSplitIterator Span_split_words(Span x) {
+  SpanSplitIterator s = {
+    .rest = x,
+    .sep = (u8) ' ',
+  };
+  return s;
+}
 
 typedef Option(Span) SpanSplitIteratorNext;
 private
