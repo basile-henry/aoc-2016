@@ -541,6 +541,13 @@ SpanSplitIteratorNext SpanSplitIterator_next(SpanSplitIterator *it) {
   }
 }
 
+private
+void SpanSplitIterator_skip(SpanSplitIterator *it, usize count) {
+  for (usize i = 0; i < count; i++) {
+    UNWRAP(SpanSplitIterator_next(it));
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // HashMap
 
