@@ -57,7 +57,12 @@ inline u16 u64_to_u16(u64 x) {
   return (u16)x;
 }
 
-#define ABS_DIFF(T, X, Y) ({ T x = X; T y = Y; x > y ? x - y : y - x; })
+#define ABS_DIFF(T, X, Y)                                                      \
+  ({                                                                           \
+    T x = X;                                                                   \
+    T y = Y;                                                                   \
+    x > y ? x - y : y - x;                                                     \
+  })
 
 ///////////////////////////////////////////////////////////////////////////////
 // Mem utils
@@ -132,7 +137,12 @@ int u8_cmp(const u8 *a, const u8 *b) { return *a < *b ? -1 : *a == *b ? 0 : 1; }
     bool valid;                                                                \
   }
 
-#define UNWRAP(E) ({ __auto_type res = E; assert(res.valid);  res.dat; })
+#define UNWRAP(E)                                                              \
+  ({                                                                           \
+    __auto_type res = E;                                                       \
+    assert(res.valid);                                                         \
+    res.dat;                                                                   \
+  })
 
 ////////////////////////////////////////////////////////////////////////////////
 // Array
@@ -176,6 +186,23 @@ private                                                                        \
                                                                                \
     ret.valid = true;                                                          \
     ret.dat = array->dat[array->len];                                          \
+    return ret;                                                                \
+  }                                                                            \
+                                                                               \
+  typedef Option(T) A_NAME##Peek;                                              \
+private                                                                        \
+  A_NAME##Peek A_NAME##_peek(A_NAME *array) {                                  \
+    /* Initialise as not valid */                                              \
+    A_NAME##Peek ret = {                                                       \
+        .valid = false,                                                        \
+    };                                                                         \
+                                                                               \
+    if (array->len == 0) {                                                     \
+      return ret;                                                              \
+    }                                                                          \
+                                                                               \
+    ret.valid = true;                                                          \
+    ret.dat = array->dat[array->len - 1];                                      \
     return ret;                                                                \
   }                                                                            \
                                                                                \
@@ -363,7 +390,8 @@ bool Span_eq(const Span *a, const Span *b) {
   return a->len == b->len && memcmp(a->dat, b->dat, a->len) == 0;
 }
 
-private bool Span_match(const Span *x, const char *ref) {
+private
+bool Span_match(const Span *x, const char *ref) {
   Span y = Span_from_str(ref);
   return Span_eq(x, &y);
 }
@@ -496,18 +524,20 @@ typedef struct {
   u8 sep;
 } SpanSplitIterator;
 
-private SpanSplitIterator Span_split_lines(Span x) {
+private
+SpanSplitIterator Span_split_lines(Span x) {
   SpanSplitIterator s = {
-    .rest = x,
-    .sep = (u8) '\n',
+      .rest = x,
+      .sep = (u8)'\n',
   };
   return s;
 }
 
-private SpanSplitIterator Span_split_words(Span x) {
+private
+SpanSplitIterator Span_split_words(Span x) {
   SpanSplitIterator s = {
-    .rest = x,
-    .sep = (u8) ' ',
+      .rest = x,
+      .sep = (u8)' ',
   };
   return s;
 }
