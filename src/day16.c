@@ -1,42 +1,20 @@
 #include "baz.h"
 
-typedef struct {
-  Span seed;
-  i32 i;
-  usize k;
-  bool mirror;
-} ModifiedDragonCurveIterator;
-
 static inline u8 dragon_curve(usize k) {
   return (u8)((k >> (__builtin_ctzl(k) + 1)) & 1);
 }
 
-static u8 ModifiedDragonCurveIterator_next(ModifiedDragonCurveIterator *it) {
-  u8 ret;
-  if (it->mirror) {
-    // Moving backwards
-    if (it->i < 0) {
-      it->mirror = false;
-      it->i++;
-      it->k++;
-      return dragon_curve(it->k);
-    }
+static u8 modified_dragon_curve(const u8 *seed, const u8 *mirror, usize len,
+                                usize i) {
+  usize k = i / (len + 1);
+  usize o = i % (len + 1);
 
-    ret = 1 - (it->seed.dat[it->i] - '0');
-    it->i--;
+  if (o < len) {
+    const u8 *buf = k % 2 == 0 ? seed : mirror;
+    return buf[o];
   } else {
-    // Moving forward
-    if (it->i == (i32)it->seed.len) {
-      it->mirror = true;
-      it->i--;
-      it->k++;
-      return dragon_curve(it->k);
-    }
-    ret = it->seed.dat[it->i] - '0';
-    it->i++;
+    return dragon_curve(k + 1);
   }
-
-  return ret;
 }
 
 define_array(String, u8, 32);
@@ -82,25 +60,41 @@ static inline void ChecksumBuilder_push(ChecksumBuilder *cb, u8 val) {
 
 private
 void solve(Span input, usize disk_len) {
-  ModifiedDragonCurveIterator dragon = {
-      .seed = input,
-      .i = 0,
-      .mirror = false,
-  };
+  assert(input.len <= 32);
+  u8 seed[32] = {0};
+  u8 mirror[32] = {0};
 
-  u8 levels = 0;
-  usize len = disk_len;
-  while ((len & 1) == 0) {
-    levels++;
-    len >>= 1;
+  for (usize i = 0; i < input.len; i++) {
+    seed[i] = input.dat[i] - '0';
+    mirror[input.len - 1 - i] = 1 - seed[i];
   }
+
+  u8 levels = (u8)__builtin_ctzl(disk_len);
 
   ChecksumBuilder cb = {
       .levels = levels,
   };
 
-  for (usize i = 0; i < disk_len; i++) {
-    ChecksumBuilder_push(&cb, ModifiedDragonCurveIterator_next(&dragon));
+  usize block_size = 2 * (input.len + 1);
+  usize blocks = disk_len / block_size;
+
+  for (usize j = 0; j < blocks; j++) {
+    for (usize i = 0; i < input.len; i++) {
+      ChecksumBuilder_push(&cb, seed[i]);
+    }
+
+    ChecksumBuilder_push(&cb, dragon_curve(2 * j + 1));
+
+    for (usize i = 0; i < input.len; i++) {
+      ChecksumBuilder_push(&cb, mirror[i]);
+    }
+
+    ChecksumBuilder_push(&cb, dragon_curve(2 * j + 2));
+  }
+
+  for (usize i = 0; i < disk_len % block_size; i++) {
+    ChecksumBuilder_push(&cb, modified_dragon_curve(seed, mirror, input.len,
+                                                    blocks * block_size + i));
   }
 
   Span checksum = {

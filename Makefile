@@ -1,8 +1,9 @@
 CFLAGS = -g -O3 -std=c99 \
-	-Wno-gnu-statement-expression \
-	-Wno-gnu-auto-type \
 	-Wimplicit-fallthrough \
-	-pedantic -Wall -Wextra -Wconversion -Werror
+	-Wall -Wextra -Wconversion -Werror
+
+# Release fast (no asserts)
+# CFLAGS = -O3 -march=native -std=c99 -DNDEBUG
 
 day04: src/day04.c
 	$(CC) $(CFLAGS) src/day04.c -o day04
@@ -36,6 +37,9 @@ day15: src/day15.c
 
 day16: src/day16.c
 	$(CC) $(CFLAGS) src/day16.c -o day16
+
+day16-hs: src/day16.hs
+	ghc -O2 -Wall -Werror src/day16.hs -o day16-hs
 
 test: src/test.c
 	$(CC) $(CFLAGS) src/test.c -o test
