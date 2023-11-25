@@ -485,6 +485,18 @@ inline Span Span_trim_start_whitespace(Span x) {
 }
 
 private
+inline Span Span_trim_end_whitespace(Span x) {
+  usize offset = x.len;
+
+  while (offset > 0 && (x.dat[offset - 1] == ' ' || x.dat[offset - 1] == '\n' ||
+                        x.dat[offset - 1] == '\t')) {
+    offset--;
+  }
+
+  return Span_slice(x, 0, offset);
+}
+
+private
 inline Span Span_trim_start(Span x, Span start) {
   if (Span_starts_with(x, start)) {
     return Span_slice(x, start.len, x.len);
@@ -746,7 +758,7 @@ private                                                                        \
 private                                                                        \
   inline void B_NAME##_remove(B_NAME *bs, usize x) {                           \
     assert(x / T##_bits < N);                                                  \
-    bs->dat[x / T##_bits] &= ~(((T)1) << (x % T##_bits));                      \
+    bs->dat[x / T##_bits] &= (T) ~(((T)1) << (x % T##_bits));                  \
   }                                                                            \
                                                                                \
 private                                                                        \
@@ -785,7 +797,7 @@ private                                                                        \
   inline usize B_NAME##_count(B_NAME a) {                                      \
     usize x = 0;                                                               \
     for (usize i = 0; i < N; i++) {                                            \
-      x += (usize)__builtin_popcount(a.dat[i]);                                \
+      x += (usize)__builtin_popcountl((u64)a.dat[i]);                          \
     }                                                                          \
     return x;                                                                  \
   }                                                                            \

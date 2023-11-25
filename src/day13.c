@@ -19,7 +19,7 @@ static inline bool Pos_eq(const Pos *a, const Pos *b) {
 static inline bool is_wall(u16 seed, Pos p) {
   u16 x = p.x;
   u16 y = p.y;
-  u16 t = x * x + 3 * x + 2 * x * y + y + y * y + seed;
+  u16 t = (u16) (x * x + 3u * x + 2u * x * y + y + y * y + seed);
   return __builtin_popcount(t) % 2 == 1;
 }
 

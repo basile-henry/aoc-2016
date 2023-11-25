@@ -41,6 +41,9 @@ day16: src/day16.c
 day16-hs: src/day16.hs
 	ghc -O2 -Wall -Werror src/day16.hs -o day16-hs
 
+day18: src/day18.c
+	$(CC) $(CFLAGS) src/day18.c -o day18
+
 test: src/test.c
 	$(CC) $(CFLAGS) src/test.c -o test
 
