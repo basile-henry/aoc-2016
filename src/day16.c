@@ -17,8 +17,6 @@ static u8 modified_dragon_curve(const u8 *seed, const u8 *mirror, usize len,
   }
 }
 
-define_array(String, u8, 32);
-
 typedef struct {
   u8 level;
   u8 val;
@@ -101,8 +99,9 @@ void solve(Span input, usize disk_len) {
       .dat = cb.checksum.dat,
       .len = cb.checksum.len,
   };
-  Span_print(checksum);
-  printf("\n");
+  String out = {0};
+  String_push_span(&out, checksum);
+  String_println(&out);
 }
 
 int main(void) {

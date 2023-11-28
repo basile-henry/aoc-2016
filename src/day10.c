@@ -126,7 +126,14 @@ void solve(Span input) {
     u8 high = b.dat < a.dat ? a.dat : b.dat;
 
     if (high == 61 && low == 17) {
-      printf("Bot [%d]:  Low: %d | High: %d\n", bot, low, high);
+      String out = {0};
+      String_push_str(&out, "Bot [");
+      String_push_u64(&out, bot, 10);
+      String_push_str(&out, "]: Low: ");
+      String_push_u64(&out, low, 10);
+      String_push_str(&out, " | High: ");
+      String_push_u64(&out, high, 10);
+      String_println(&out);
     }
 
     if (instr.low_output) {
@@ -150,9 +157,13 @@ void solve(Span input) {
     }
   }
 
-  printf("%zd\n", (usize)output_chips[0].dat[0] *
+  String out = {0};
+  String_push_u64(&out,
+                  (usize)output_chips[0].dat[0] *
                       (usize)output_chips[1].dat[0] *
-                      (usize)output_chips[2].dat[0]);
+                      (usize)output_chips[2].dat[0],
+                  10);
+  String_println(&out);
 }
 
 int main(void) {

@@ -1,5 +1,4 @@
 #include "baz.h"
-#include <stdio.h>
 
 typedef struct {
   u16 num_char;
@@ -67,8 +66,12 @@ u64 solve(Span input, bool recurse) {
 
 int main(void) {
   Span input = Span_from_file("inputs/day09.txt");
-  printf("%zd\n", solve(input, false));
-  printf("%zd\n", solve(input, true));
+  String out = {0};
+  String_push_u64(&out, solve(input, false), 10);
+  String_printlnc(&out);
+
+  String_push_u64(&out, solve(input, true), 10);
+  String_printlnc(&out);
 
   return 0;
 }

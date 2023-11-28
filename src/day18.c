@@ -43,7 +43,8 @@ static void solve(Span input, usize num_rows) {
     prev_row = row;
   }
 
-  printf("%zd\n", width * num_rows - traps);
+  putu64(width * num_rows - traps);
+  putc('\n');
 }
 
 int main(void) {

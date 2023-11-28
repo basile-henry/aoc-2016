@@ -14,18 +14,23 @@ typedef struct {
 } Room;
 
 static void Room_decypher(Room room) {
+  String out = {0};
+
   for (usize i = 0; i < room.room_words.len; i++) {
     Span word = room.room_words.dat[i];
 
     for (usize j = 0; j < word.len; j++) {
       u8 c = (u8)(((usize) word.dat[j] - (usize) 'a' + room.sector_id) % 26) + 'a';
-      putc(c, stdout);
+      String_push(&out, c);
     }
 
-    putc(' ', stdout);
+    String_push(&out, ' ');
   }
 
-  printf(" %zd\n", room.sector_id);
+  String_push(&out, ' ');
+  String_push_u64(&out, room.sector_id, 10);
+  String_push(&out, '\n');
+  String_print(&out);
 }
 
 static Room Room_parse(Span room_span) {
@@ -127,39 +132,13 @@ void solve(Span data) {
     line = SpanSplitIterator_next(&line_it);
   }
 
-  printf("%zd\n", part1);
+  String out = {0};
+  String_push_u64(&out, part1, 10);
+  String_push(&out, '\n');
+  String_print(&out);
 }
 
 int main(void) {
-  // Test example
-  {
-    Span example_span = Span_from_str("aaaaa-bbb-z-y-x-123[abxyz]");
-    Room example_room = Room_parse(example_span);
-    printf("{ .sector_id = %zd, .is_real = %d, }\n", example_room.sector_id,
-           example_room.is_real);
-  }
-
-  {
-    Span example_span = Span_from_str("a-b-c-d-e-f-g-h-987[abcde]");
-    Room example_room = Room_parse(example_span);
-    printf("{ .sector_id = %zd, .is_real = %d, }\n", example_room.sector_id,
-           example_room.is_real);
-  }
-
-  {
-    Span example_span = Span_from_str("not-a-real-room-404[oarel]");
-    Room example_room = Room_parse(example_span);
-    printf("{ .sector_id = %zd, .is_real = %d, }\n", example_room.sector_id,
-           example_room.is_real);
-  }
-
-  {
-    Span example_span = Span_from_str("totally-real-room-200[decoy]");
-    Room example_room = Room_parse(example_span);
-    printf("{ .sector_id = %zd, .is_real = %d, }\n", example_room.sector_id,
-           example_room.is_real);
-  }
-
   Span input = Span_from_file("inputs/day04.txt");
   solve(input);
 

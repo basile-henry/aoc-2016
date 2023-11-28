@@ -1,7 +1,4 @@
 #include "baz.h"
-#include <assert.h>
-#include <stdint.h>
-#include <stdio.h>
 
 typedef struct {
   u16 dat[26];
@@ -74,17 +71,21 @@ static void solve(Span input) {
     line = SpanSplitIterator_next(&line_it);
   }
 
-  printf("Most frequent: ");
+  String out = {0};
+  String_push_str(&out, "Most frequent: ");
   for (usize i = 0; i < freq_maps.len; i++) {
-    putc(CharFreqMap_most_frequent(freq_maps.dat[i]), stdout);
+    String_push(&out, CharFreqMap_most_frequent(freq_maps.dat[i]));
   }
-  putc('\n', stdout);
+  String_push(&out, '\n');
+  String_print(&out);
 
-  printf("Least frequent: ");
+  String_clear(&out);
+  String_push_str(&out, "Least frequent: ");
   for (usize i = 0; i < freq_maps.len; i++) {
-    putc(CharFreqMap_least_frequent(freq_maps.dat[i]), stdout);
+    String_push(&out, CharFreqMap_least_frequent(freq_maps.dat[i]));
   }
-  putc('\n', stdout);
+  String_push(&out, '\n');
+  String_print(&out);
 }
 
 int main(void) {

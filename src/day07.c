@@ -122,21 +122,18 @@ static void solve(Span input) {
     line = SpanSplitIterator_next(&line_it);
   }
 
-  printf("part1: %zd\n", part1);
-  printf("part2: %zd\n", part2);
+  String out = {0};
+  String_push_str(&out, "part1: ");
+  String_push_u64(&out, part1, 10);
+  String_println(&out);
+
+  String_clear(&out);
+  String_push_str(&out, "part2: ");
+  String_push_u64(&out, part2, 10);
+  String_println(&out);
 }
 
 int main(void) {
-  printf("%d\n", ip_supports_tls(Span_from_str("abba[mnop]qrst")));
-  printf("%d\n", ip_supports_tls(Span_from_str("abcd[bddb]xyyx")));
-  printf("%d\n", ip_supports_tls(Span_from_str("aaaa[qwer]tyui")));
-  printf("%d\n", ip_supports_tls(Span_from_str("ioxxoj[asdfgh]zxcvbn")));
-
-  printf("%d\n", ip_supports_ssl(Span_from_str("aba[bab]xyz")));
-  printf("%d\n", ip_supports_ssl(Span_from_str("xyx[xyx]xyx")));
-  printf("%d\n", ip_supports_ssl(Span_from_str("aaa[kek]eke")));
-  printf("%d\n", ip_supports_ssl(Span_from_str("zazbz[bzb]cdb")));
-
   Span input = Span_from_file("inputs/day07.txt");
 
   solve(input);

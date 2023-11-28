@@ -19,7 +19,7 @@ static inline bool Pos_eq(const Pos *a, const Pos *b) {
 static inline bool is_wall(u16 seed, Pos p) {
   u16 x = p.x;
   u16 y = p.y;
-  u16 t = (u16) (x * x + 3u * x + 2u * x * y + y + y * y + seed);
+  u16 t = (u16)(x * x + 3u * x + 2u * x * y + y + y * y + seed);
   return __builtin_popcount(t) % 2 == 1;
 }
 
@@ -29,9 +29,21 @@ typedef struct {
   Pos goal;
 } State;
 
-private inline void State_print(State s) {
-  printf("{ .moves = %zd, .pos = { %d, %d }, .goal = { %d, %d }, }\n", s.moves,
-         s.pos.x, s.pos.y, s.goal.x, s.goal.y);
+private
+inline void State_print(State s) {
+  String out = {0};
+  String_push_str(&out, "{ .moves = ");
+  String_push_u64(&out, s.moves, 10);
+  String_push_str(&out, ", .pos = { ");
+  String_push_u64(&out, s.pos.x, 10);
+  String_push_str(&out, ", ");
+  String_push_u64(&out, s.pos.y, 10);
+  String_push_str(&out, " }, .goal = { ");
+  String_push_u64(&out, s.goal.x, 10);
+  String_push_str(&out, ", ");
+  String_push_u64(&out, s.goal.y, 10);
+  String_push_str(&out, "}, }\n");
+  String_print(&out);
 }
 
 static inline usize State_manahattan(const State *s) {
@@ -75,7 +87,9 @@ usize solve(u16 seed, Pos goal) {
     State current = UNWRAP(PriorityQueue_extract(pq));
 
     if (current.moves == 50) {
-      printf("After 50 moves, visited: %zd\n", c->count);
+      putstr("After 50 moves, visited: ");
+      putu64(c->count);
+      putc('\n');
     }
 
     if (Pos_eq(&current.pos, &current.goal)) {
@@ -122,12 +136,14 @@ int main(void) {
       .x = 7,
       .y = 4,
   };
-  printf("%zd\n", solve(10, example));
+  putu64(solve(10, example));
+  putc('\n');
 
   Pos input = {
       .x = 31,
       .y = 39,
   };
-  printf("%zd\n", solve(1352, input));
+  putu64(solve(1352, input));
+  putc('\n');
   return 0;
 }

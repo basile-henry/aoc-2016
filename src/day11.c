@@ -1,7 +1,4 @@
 #include "baz.h"
-#include <ctype.h>
-#include <stdint.h>
-#include <stdio.h>
 
 typedef u8 Item; // More like a u4
 
@@ -15,10 +12,9 @@ static inline bool Item_generator(Item x) { return (bool)((x >> 3) & 1); }
 static inline u8 Item_id(Item x) { return x & 7; }
 
 static void Item_print(Item item) {
-  char id[2] = {0};
-  id[0] = (char)toupper(Item_id(item) + 'a');
-
-  printf("%s%s", id, Item_generator(item) ? "G" : "M");
+  u8 id = to_upper(Item_id(item) + 'a');
+  putc(id);
+  putc(Item_generator(item) ? 'G' : 'M');
 }
 
 static inline bool Item_eq(Item a, Item b) {
@@ -68,8 +64,15 @@ static int State_cmp(const State *a, const State *b) {
 }
 
 static void State_print(const State *state) {
+  String out = {0};
   for (int i = 3; i >= 0; i--) {
-    printf("F%d %s ", i + 1, state->elevator == i ? "E" : ".");
+    String_push(&out, 'F');
+    String_push(&out, (u8)(i + '1'));
+    String_push(&out, ' ');
+    String_push(&out, state->elevator == i ? 'E' : '.');
+    String_push(&out, ' ');
+    String_print(&out);
+    String_clear(&out);
 
     FloorState floor = state->floors[i];
     for (usize j = 0; j < FloorState_size; j++) {
@@ -78,9 +81,10 @@ static void State_print(const State *state) {
       }
 
       Item_print((Item)j);
-      printf(" ");
+      putc(' ');
     }
-    printf("\n");
+
+    putc('\n');
   }
 }
 
@@ -271,15 +275,11 @@ static void print_steps(const BestMoves *bm, usize ix) {
     print_steps(bm, step.from_ix);
   }
 
-  printf("[%zd]: { .up = %d, .items = { ", step.moves, step.move.up);
-  for (usize i = 0; i < step.move.items.len; i++) {
-    Item_print(step.move.items.dat[i]);
-    printf(", ");
-  }
-  printf("} }\n");
-
+  putu64(step.moves);
+  putc(':');
+  putc('\n');
   State_print(&bm->keys[ix]);
-  printf("\n");
+  putc('\n');
 }
 
 static void solve(State input) {
@@ -307,8 +307,6 @@ static void solve(State input) {
     if (State_is_goal(&current.dat.state)) {
       print_steps(bm, ix);
 
-      free(q);
-      free(bm);
       return;
     }
 
@@ -361,7 +359,8 @@ static void solve(State input) {
 
 int main(void) {
   // State example = State_parse(
-  //     Span_from_str("The first floor contains a hydrogen-compatible microchip "
+  //     Span_from_str("The first floor contains a hydrogen-compatible microchip
+  //     "
   //                   "and a lithium-compatible microchip.\n"
   //                   "The second floor contains a hydrogen generator.\n"
   //                   "The third floor contains a lithium generator.\n"
@@ -373,9 +372,9 @@ int main(void) {
   // solve(example);
 
   State input = State_parse(Span_from_file("inputs/day11.txt"));
-  printf("Input:\n");
+  putstr("Input:\n");
   State_print(&input);
-  printf("\n");
+  putstr("\n");
   solve(input);
 
   FloorState_insert(&input.floors[0], Item_mk(get_id('e'), true));
@@ -383,9 +382,9 @@ int main(void) {
   FloorState_insert(&input.floors[0], Item_mk(get_id('d'), true));
   FloorState_insert(&input.floors[0], Item_mk(get_id('d'), false));
 
-  printf("\n\nModified:\n");
+  putstr("\n\nModified:\n");
   State_print(&input);
-  printf("\n");
+  putstr("\n");
   solve(input);
 
   return 0;

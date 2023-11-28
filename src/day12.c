@@ -67,8 +67,9 @@ static Instr Instr_parse(Span line) {
     instr.y = IntOrReg_parse(y_span);
     assert(instr.y.tag == Int);
   } else {
-    Span_print(tag_span);
-    printf("\n");
+    String out = {0};
+    String_push_span(&out, tag_span);
+    String_println(&out);
     panic("Unexpected\n");
   }
 
@@ -77,33 +78,46 @@ static Instr Instr_parse(Span line) {
 
 private
 void Instr_print(Instr i) {
+  String out = {0};
   switch (i.tag) {
   case Cpy: {
-    char y[2] = {(char)i.y.dat.r + 'a', 0};
     if (i.x.tag == Reg) {
-      char x[2] = {(char)i.x.dat.r + 'a', 0};
-      printf("Cpy { .x = %s, .y = %s }\n", x, y);
+      String_push_str(&out, "Cpy { .x = ");
+      String_push(&out, i.x.dat.r + 'a');
+      String_push_str(&out, ", .y = ");
+      String_push(&out, i.y.dat.r + 'a');
     } else {
-      printf("Cpy { .x = %d, .y = %s }\n", i.x.dat.i, y);
+      String_push_str(&out, "Cpy { .x = ");
+      String_push_i64(&out, i.x.dat.i, 10);
+      String_push_str(&out, ", .y = ");
+      String_push(&out, i.y.dat.r + 'a');
     }
   } break;
   case Inc: {
-    char x[2] = {(char)i.x.dat.r + 'a', 0};
-    printf("Inc { .x = %s }\n", x);
+    String_push_str(&out, "Inc { .x = ");
+    String_push(&out, i.x.dat.r + 'a');
+    String_push_str(&out, " }");
   } break;
   case Dec: {
-    char x[2] = {(char)i.x.dat.r + 'a', 0};
-    printf("Dec { .x = %s }\n", x);
+    String_push_str(&out, "Dec { .x = ");
+    String_push(&out, i.x.dat.r + 'a');
+    String_push_str(&out, " }");
   } break;
   case Jnz:
     if (i.x.tag == Reg) {
-      char x[2] = {(char)i.x.dat.r + 'a', 0};
-      printf("Jnz { .x = %s, .y = %d }\n", x, i.y.dat.i);
+      String_push_str(&out, "Jnz { .x = ");
+      String_push(&out, i.x.dat.r + 'a');
+      String_push_str(&out, ", .y = ");
+      String_push_i64(&out, i.y.dat.i, 10);
     } else {
-      printf("Jnz { .x = %d, .y = %d }\n", i.x.dat.i, i.y.dat.i);
+      String_push_str(&out, "Jnz { .x = ");
+      String_push_i64(&out, i.x.dat.i, 10);
+      String_push_str(&out, ", .y = ");
+      String_push_i64(&out, i.y.dat.i, 10);
     }
     break;
   }
+  String_println(&out);
 }
 
 define_array(Program, Instr, 32);
@@ -114,8 +128,19 @@ typedef struct {
 } VM;
 
 static void VM_print(const VM *vm) {
-  printf("{ .pc = %d, .regs = { %d, %d, %d, %d, }, }\n", vm->pc, vm->regs[0],
-         vm->regs[1], vm->regs[2], vm->regs[3]);
+  String out = {0};
+  String_push_str(&out, "{ .pc = ");
+  String_push_i64(&out, vm->pc, 10);
+  String_push_str(&out, ", .regs = { ");
+  String_push_i64(&out, vm->regs[0], 10);
+  String_push_str(&out, ", ");
+  String_push_i64(&out, vm->regs[1], 10);
+  String_push_str(&out, ", ");
+  String_push_i64(&out, vm->regs[2], 10);
+  String_push_str(&out, ", ");
+  String_push_i64(&out, vm->regs[3], 10);
+  String_push_str(&out, ", }, }\n");
+  String_print(&out);
 }
 
 static void VM_eval(VM *vm, const Program *program) {

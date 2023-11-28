@@ -1,9 +1,7 @@
-CFLAGS = -g -O3 -std=c99 \
+CFLAGS = -g -O3 -std=c99 -march=native \
+	-nostdlib -nostdinc \
 	-Wimplicit-fallthrough \
 	-Wall -Wextra -Wconversion -Werror
-
-# Release fast (no asserts)
-# CFLAGS = -O3 -march=native -std=c99 -DNDEBUG
 
 day04: src/day04.c
 	$(CC) $(CFLAGS) src/day04.c -o day04
@@ -48,8 +46,14 @@ test: src/test.c
 	$(CC) $(CFLAGS) src/test.c -o test
 
 .PHONY: all
-all: test day04 day06 day07 day08 day09 day10 day11 day12 day13 day15 day16
+all: test day04 day06 day07 day08 day09 day10 day11 day12 day13 day15 day16 day16-hs day18
 
 .PHONY: clean
 clean:
-	rm -f ./test ./day04 ./day06 ./day07 ./day08 ./day09 ./day10 ./day11 ./day12 ./day13 ./day15 ./day16
+	rm -f ./test ./day04 ./day06 ./day07 ./day08 ./day09 ./day10 ./day11 ./day12 ./day13 ./day15 ./day16 ./day16-hs ./day18
+
+DAY?=day04
+
+.PHONY: watch
+watch:
+	watchexec -c -w src 'rm -f $(DAY) && $(MAKE) $(DAY) && ./$(DAY)'

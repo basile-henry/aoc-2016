@@ -1,58 +1,399 @@
 #ifndef BAZ_HEADER
 #define BAZ_HEADER
 
-#include <assert.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/mman.h>
-#include <unistd.h>
+#define unused __attribute__((unused))
+#define private unused static
 
-#define private __attribute__((unused)) static
+#define likely(x) __builtin_expect(!!(x), 1)
+#define unlikely(x) __builtin_expect(!!(x), 0)
 
-#define panic(...)                                                             \
+#define panic(msg)                                                             \
   do {                                                                         \
-    fprintf(stderr, __VA_ARGS__);                                              \
-    exit(1);                                                                   \
+    sys_write(STDERR, msg, strlen(msg));                                       \
+    sys_exit(1);                                                               \
+    __builtin_unreachable();                                                   \
   } while (0)
 
-#define assert_msg(cond, ...)                                                  \
+// We override this later with a better error message when we can format
+// __LINE__ properly
+#define ASSERT_PANIC() panic("Assertion failed\n")
+
+#define assert(cond)                                                           \
   do {                                                                         \
-    if (!(cond)) {                                                             \
-      fprintf(stderr, __VA_ARGS__);                                            \
-      exit(1);                                                                 \
+    if (unlikely(!(cond))) {                                                   \
+      ASSERT_PANIC();                                                          \
     }                                                                          \
   } while (0)
 
 ///////////////////////////////////////////////////////////////////////////////
-// Int types
+// Types
 
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-typedef int8_t i8;
-typedef int16_t i16;
-typedef int32_t i32;
-typedef int64_t i64;
-typedef size_t usize;
+#define NULL 0
+
+// C++ already has bool defined (C++ not supported, but this keeps clangd happy)
+#ifndef __has_cpp_attribute
+typedef _Bool bool;
+#define true 1
+#define false 0
+#endif
+
+typedef unsigned char u8;
+_Static_assert(sizeof(u8) == 1, "u8 should be 1 byte");
+typedef unsigned short u16;
+_Static_assert(sizeof(u16) == 2, "u16 should be 2 byte");
+typedef unsigned int u32;
+_Static_assert(sizeof(u32) == 4, "u32 should be 4 byte");
+typedef unsigned long u64;
+_Static_assert(sizeof(u64) == 8, "u64 should be 8 byte");
+
+typedef char i8;
+_Static_assert(sizeof(i8) == 1, "i8 should be 1 byte");
+typedef short i16;
+_Static_assert(sizeof(i16) == 2, "i16 should be 2 byte");
+typedef int i32;
+_Static_assert(sizeof(i32) == 4, "i32 should be 4 byte");
+typedef long i64;
+_Static_assert(sizeof(i64) == 8, "i64 should be 8 byte");
+
+typedef i64 isize;
+typedef u64 usize;
+
+#define UINT8_MAX 255
+#define UINT16_MAX 65535
+#define UINT32_MAX 4294967295
+#define UINT64_MAX 18446744073709551615L
+
+///////////////////////////////////////////////////////////////////////////////
+// Syscalls
+
+// From glibc
+#define STDOUT 1
+#define STDERR 2
+#define O_RDONLY 0
+#define SEEK_END 2
+#define PROT_READ 0x1
+#define PROT_WRITE 0x2
+#define MAP_PRIVATE 0x02
+#define MAP_ANONYMOUS 0x20
+
+isize sys_write(i32 fd, const void *buf, usize size) {
+  register i64 rax __asm__("rax") = 1;
+  register i32 rdi __asm__("rdi") = fd;
+  register const void *rsi __asm__("rsi") = buf;
+  register usize rdx __asm__("rdx") = size;
+  __asm__ __volatile__("syscall"
+                       : "+r"(rax)
+                       : "r"(rdi), "r"(rsi), "r"(rdx)
+                       : "rcx", "r11", "memory");
+  return rax;
+}
+
+isize sys_lseek(i32 fd, isize offset, usize origin) {
+  register i64 rax __asm__("rax") = 8;
+  register i32 rdi __asm__("rdi") = fd;
+  register isize rsi __asm__("rsi") = offset;
+  register usize rdx __asm__("rdx") = origin;
+  __asm__ __volatile__("syscall"
+                       : "+r"(rax)
+                       : "r"(rdi), "r"(rsi), "r"(rdx)
+                       : "rcx", "r11", "memory");
+  return rax;
+}
+
+i32 sys_open(const char *filename, i32 flags, i32 mode) {
+  register i64 rax __asm__("rax") = 2;
+  register const char *rdi __asm__("rdi") = filename;
+  register i32 rsi __asm__("rsi") = flags;
+  register i32 rdx __asm__("rdx") = mode;
+  __asm__ __volatile__("syscall"
+                       : "+r"(rax)
+                       : "r"(rdi), "r"(rsi), "r"(rdx)
+                       : "rcx", "r11", "memory");
+  return (i32)rax;
+}
+
+void *sys_mmap(void *addr, usize length, i32 prot, i32 flags, i32 fd,
+               isize offset) {
+  register i64 rax __asm__("rax") = 9;
+  register usize rdi __asm__("rdi") = (usize)addr;
+  register usize rsi __asm__("rsi") = length;
+  register usize rdx __asm__("rdx") = (usize)prot;
+  register usize r10 __asm__("r10") = (usize)flags;
+  register usize r8 __asm__("r8") = (usize)fd;
+  register usize r9 __asm__("r9") = (usize)offset;
+  __asm__ __volatile__("syscall"
+                       : "+r"(rax)
+                       : "r"(rdi), "r"(rsi), "r"(rdx), "r"(r10), "r"(r8),
+                         "r"(r9)
+                       : "rcx", "r11", "memory");
+  return (void *)rax;
+}
+
+void sys_exit(i32 exit_status) {
+  register i64 rax __asm__("rax") = 60;
+  register i32 rdi __asm__("rdi") = exit_status;
+  __asm__ __volatile__("syscall"
+                       : "+r"(rax)
+                       : "r"(rdi)
+                       : "rcx", "r11", "memory");
+  __builtin_unreachable();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Entry point
+
+int main(void);
+
+__attribute__((force_align_arg_pointer)) void _start() {
+  int ret = main();
+  sys_exit(ret);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Mem utils
+
+// Needed by C compiler for copying data
+extern void *memcpy(void *__restrict dst, const void *__restrict src,
+                    usize bytes) {
+  u8 *dst_bytes = (u8 *)dst;
+  const u8 *src_bytes = (const u8 *)src;
+
+  // naive impl
+  for (usize i = 0; i < bytes; i++) {
+    dst_bytes[i] = src_bytes[i];
+  }
+
+  return dst;
+}
+
+// Needed by C compiler for zero-initialisation
+extern void *memset(void *s, int c, usize bytes) {
+  u8 *s_byte = (u8 *)s;
+
+  // naive impl
+  for (usize i = 0; i < bytes; i++) {
+    s_byte[i] = (u8)c;
+  }
+
+  return s;
+}
+
+private
+void *calloc(usize n_elem, usize size_elem) {
+  return sys_mmap(NULL, n_elem * size_elem, PROT_READ | PROT_WRITE,
+                  MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+}
+
+private
+void free(void *x) {
+  // TODO: call munmap?
+  (void)(x);
+}
+
+private
+void swap(void *__restrict a, void *__restrict b, usize bytes) {
+  u8 temp[bytes]; // VLA
+  memcpy(temp, a, bytes);
+  memcpy(a, b, bytes);
+  memcpy(b, temp, bytes);
+}
+
+private
+int memcmp(const void *a, const void *b, usize bytes) {
+  const u8 *a_bytes = (const u8 *)a;
+  const u8 *b_bytes = (const u8 *)b;
+
+  // naive impl
+  for (usize i = 0; i < bytes; i++) {
+    if (a_bytes[i] != b_bytes[i]) {
+      return (a_bytes[i] < b_bytes[i]) ? -1 : 1;
+    }
+  }
+
+  return 0;
+}
+
+private
+const u8 *memchr(const u8 *s, u8 c, usize bytes) {
+  // naive impl
+  for (usize i = 0; i < bytes; i++) {
+    if (s[i] == c) {
+      return (u8 *)((usize)s + i);
+    }
+  }
+
+  return NULL;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// C-style 0-terminated string utils
+
+private
+usize strlen(const char *str) {
+  const char *ptr = str;
+  while (*ptr != '\0') {
+    ptr++;
+  }
+
+  return (usize)(ptr - str);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Printing/Parsing
+
+private
+inline u8 to_upper(u8 x) { return x; } //  & ~((u8)1 << 6); }
+
+private
+inline u8 to_digit(u64 x, u8 base) {
+  assert(base <= 36);
+  assert(x < base);
+
+  if (x < 10) {
+    return (u8)x + '0';
+  } else {
+    return (u8)x - 9 + 'a';
+  }
+}
+
+private
+inline bool is_digit(u8 x, u8 base) {
+  assert(base <= 36);
+  if (base <= 10) {
+    return (x >= '0' && x < (base + '0'));
+  } else {
+    return (x >= '0' && x <= '9') || (x >= 'a' && x < (base - 10 + 'a')) ||
+           (x >= 'A' && x < (base - 10 + 'A'));
+  }
+}
+
+private
+inline u64 from_digit(u8 x, u8 base) {
+  assert(is_digit(x, base));
+
+  if (x <= '9') {
+    return (u64)(x - '0');
+  } else if (x <= 'Z') {
+    return (u64)(x - 'A');
+  } else {
+    return (u64)(x - 'a');
+  }
+}
+
+// format number x with base into buffer
+private
+usize fmt_u64(u8 *buf, usize buf_len, u64 x, u8 base) {
+  assert(buf_len > 0);
+  if (x == 0) {
+    *buf = '0';
+    return 1;
+  }
+
+  // write in reverse (we don't know how many bytes it will be)
+  usize i = 0;
+  while (x > 0) {
+    assert(i < buf_len); // crash otherwise
+
+    buf[i] = to_digit(x % base, base);
+    x /= base;
+    i++;
+  }
+
+  // reverse
+  for (usize j = 0; j < i / 2; j++) {
+    u8 t = buf[j];
+    buf[j] = buf[i - 1 - j];
+    buf[i - 1 - j] = t;
+  }
+
+  return i;
+}
+
+private
+usize fmt_i64(u8 *buf, usize buf_len, i64 x, u8 base) {
+  if (x < 0) {
+    assert(buf_len > 1);
+    buf[0] = '-';
+    usize len = fmt_u64(&buf[1], buf_len - 1, (u64)(-x), base);
+    return len + 1;
+  } else {
+    return fmt_u64(buf, buf_len, (u64)x, base);
+  }
+}
+
+// Changes buf_len to the parse len
+private
+u64 parse_u64(const u8 *buf, usize *buf_len, u8 base) {
+  usize i = 0;
+  u64 x = 0;
+  while (i < *buf_len && is_digit(buf[i], base)) {
+    x *= (u64)base;
+    x += from_digit(buf[i], base);
+    i++;
+  }
+
+  *buf_len = i;
+  return x;
+}
+
+// Changes buf_len to the parse len
+private
+i64 parse_i64(const u8 *buf, usize *buf_len, u8 base) {
+  if (*buf_len > 0 && buf[0] == '-') {
+    usize len = *buf_len - 1;
+    u64 x = parse_u64(&buf[1], &len, base);
+    *buf_len = (len == 0) ? 0 : len + 1; // handle parse error
+    return -(i64)x;
+  } else {
+    u64 x = parse_u64(buf, buf_len, base);
+    return (i64)x;
+  }
+}
+
+// Better error message now that we can format __LINE__ properly
+#undef ASSERT_PANIC
+#define ASSERT_PANIC()                                                         \
+  do {                                                                         \
+    const char *msg = "Assertion failed: ";                                    \
+    sys_write(STDERR, msg, strlen(msg));                                       \
+    sys_write(STDERR, __FILE__, strlen(__FILE__));                             \
+    sys_write(STDERR, ":", 1);                                                 \
+    u8 buf[256] = {0};                                                         \
+    usize len = fmt_u64(buf, 256, __LINE__, 10);                               \
+    sys_write(STDERR, buf, len);                                               \
+    sys_write(STDERR, "\n", 1);                                                \
+    sys_exit(1);                                                               \
+  } while (0);
+
+///////////////////////////////////////////////////////////////////////////////
+// Basic IO
+
+private
+inline void putc(u8 c) { sys_write(STDOUT, &c, 1); }
+
+private
+inline void putstr(const char *s) { sys_write(STDOUT, s, strlen(s)); }
+
+private
+void putu64(u64 x) {
+  u8 buf[128];
+  usize len = fmt_u64(buf, 128, x, 10);
+  sys_write(STDOUT, buf, len);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Int utils
 
 private
 inline u8 u64_to_u8(u64 x) {
-  assert_msg(x <= UINT8_MAX, "%zd is greater than %d (max u8)\n", x, UINT8_MAX);
+  assert(x <= UINT8_MAX);
 
   return (u8)x;
 }
 
 private
 inline u16 u64_to_u16(u64 x) {
-  assert_msg(x <= UINT16_MAX, "%zd is greater than %d (max u16)\n", x,
-             UINT16_MAX);
+  assert(x <= UINT16_MAX);
 
   return (u16)x;
 }
@@ -65,17 +406,6 @@ inline u16 u64_to_u16(u64 x) {
   })
 
 ///////////////////////////////////////////////////////////////////////////////
-// Mem utils
-
-private
-void swap(void *__restrict a, void *__restrict b, usize bytes) {
-  u8 temp[bytes]; // VLA
-  memcpy(temp, a, bytes);
-  memcpy(a, b, bytes);
-  memcpy(b, temp, bytes);
-}
-
-///////////////////////////////////////////////////////////////////////////////
 // Hash
 
 // FxHash using this reference:
@@ -83,13 +413,7 @@ void swap(void *__restrict a, void *__restrict b, usize bytes) {
 typedef usize FxHasher;
 typedef usize Hash;
 
-#if UINTPTR_MAX == 0xFFFFFFFF
-#define K 0x9e3779b9
-#elif UINTPTR_MAX == 0xFFFFFFFFFFFFFFFFu
 #define K 0x517cc1b727220a95u
-#else
-#error Only 32 and 64 bits archs supported
-#endif
 
 private
 inline void FxHasher_add(FxHasher *hasher, usize x) {
@@ -160,6 +484,8 @@ For example `define_array(WordsArray, Span, 32);` defines the new type
     usize len;                                                                 \
     T dat[N];                                                                  \
   } A_NAME;                                                                    \
+                                                                               \
+  const usize A_NAME##_capacity = N;                                           \
                                                                                \
 private                                                                        \
   T *A_NAME##_push(A_NAME *array, T x) {                                       \
@@ -354,13 +680,13 @@ Span Span_from_str(const char *str) {
 // Note: This function leaks a file descriptor and doesn't munmap for you
 private
 Span Span_from_file(const char *path) {
-  int fd = open(path, O_RDONLY);
+  i32 fd = sys_open(path, O_RDONLY, 0);
   assert(fd != -1);
 
-  off_t len = lseek(fd, 0, SEEK_END);
+  isize len = sys_lseek(fd, 0, SEEK_END);
   assert(len >= 0);
 
-  u8 *dat = (u8 *)mmap(0, (size_t)len, PROT_READ, MAP_PRIVATE, fd, 0);
+  u8 *dat = (u8 *)sys_mmap(NULL, (usize)len, PROT_READ, MAP_PRIVATE, fd, 0);
   assert(dat != (void *)-1);
 
   Span ret = {
@@ -369,9 +695,6 @@ Span Span_from_file(const char *path) {
   };
   return ret;
 }
-
-private
-void Span_print(Span span) { fwrite(span.dat, 1, span.len, stdout); }
 
 private
 Hash Span_hash(const Span *span) {
@@ -416,13 +739,11 @@ Span Span_slice(Span x, usize from, usize to) {
 
 typedef Option(T2(u64, Span)) SpanParseU64;
 private
-SpanParseU64 Span_parse_u64(Span x, int base) {
-  errno = 0;
-  char *end;
-  const u64 res = strtoul((char *)x.dat, &end, base);
-  assert(errno == 0);
+SpanParseU64 Span_parse_u64(Span x, u8 base) {
+  usize len = x.len;
+  u64 res = parse_u64(x.dat, &len, base);
 
-  if (x.dat == (u8 *)end) {
+  if (len == 0) {
     SpanParseU64 ret = {
         .valid = false,
     };
@@ -433,7 +754,7 @@ SpanParseU64 Span_parse_u64(Span x, int base) {
       .dat =
           {
               .fst = res,
-              .snd = Span_slice(x, (usize)end - (usize)x.dat, x.len),
+              .snd = Span_slice(x, len, x.len),
           },
       .valid = true,
   };
@@ -442,13 +763,11 @@ SpanParseU64 Span_parse_u64(Span x, int base) {
 
 typedef Option(T2(i64, Span)) SpanParseI64;
 private
-SpanParseI64 Span_parse_i64(Span x, int base) {
-  errno = 0;
-  char *end;
-  const i64 res = strtol((char *)x.dat, &end, base);
-  assert(errno == 0);
+SpanParseI64 Span_parse_i64(Span x, u8 base) {
+  usize len = x.len;
+  i64 res = parse_i64(x.dat, &len, base);
 
-  if (x.dat == (u8 *)end) {
+  if (len == 0) {
     SpanParseI64 ret = {
         .valid = false,
     };
@@ -459,7 +778,7 @@ SpanParseI64 Span_parse_i64(Span x, int base) {
       .dat =
           {
               .fst = res,
-              .snd = Span_slice(x, (usize)end - (usize)x.dat, x.len),
+              .snd = Span_slice(x, len, x.len),
           },
       .valid = true,
   };
@@ -468,8 +787,7 @@ SpanParseI64 Span_parse_i64(Span x, int base) {
 
 private
 inline bool Span_starts_with(Span x, Span start) {
-  return start.len <= x.len &&
-         strncmp((char *)x.dat, (char *)start.dat, start.len) == 0;
+  return start.len <= x.len && memcmp(x.dat, start.dat, start.len) == 0;
 }
 
 private
@@ -508,7 +826,7 @@ inline Span Span_trim_start(Span x, Span start) {
 typedef Option(T2(Span, Span)) SpanSplitOn;
 private
 SpanSplitOn Span_split_on(u8 byte, Span x) {
-  u8 *match = (u8 *)memchr((void *)x.dat, (unsigned char)byte, x.len);
+  const u8 *match = memchr(x.dat, byte, x.len);
   usize match_ix = (usize)(match - x.dat);
 
   if (match == NULL) {
@@ -803,5 +1121,64 @@ private                                                                        \
   }                                                                            \
                                                                                \
   void REQUIRE_SEMICOLON()
+
+////////////////////////////////////////////////////////////////////////////////
+// String
+
+define_array(String, u8, 256);
+
+private
+void String_clear(String *str) { str->len = 0; }
+
+private
+void String_push_str(String *str, const char *s) {
+  usize len = strlen(s);
+  assert(str->len + len <= String_capacity);
+  memcpy(&str->dat[str->len], s, len);
+  str->len += len;
+}
+
+private
+void String_push_span(String *str, Span spn) {
+  assert(str->len + spn.len <= String_capacity);
+  memcpy(&str->dat[str->len], spn.dat, spn.len);
+  str->len += spn.len;
+}
+
+private
+void String_push_u64(String *str, u64 x, u8 base) {
+  u8 buf[128];
+  usize len = fmt_u64(buf, 128, x, base);
+  assert(str->len + len <= String_capacity);
+  memcpy(&str->dat[str->len], buf, len);
+  str->len += len;
+}
+
+private
+void String_push_i64(String *str, i64 x, u8 base) {
+  u8 buf[128];
+  usize len = fmt_i64(buf, 128, x, base);
+  assert(str->len + len <= String_capacity);
+  memcpy(&str->dat[str->len], buf, len);
+  str->len += len;
+}
+
+private
+inline void String_print(const String *str) {
+  sys_write(STDOUT, str->dat, str->len);
+}
+
+private
+inline void String_println(String *str) {
+  String_push(str, '\n');
+  String_print(str);
+}
+
+private
+inline void String_printlnc(String *str) {
+  String_push(str, '\n');
+  String_print(str);
+  String_clear(str);
+}
 
 #endif // BAZ_HEADER

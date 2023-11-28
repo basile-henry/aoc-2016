@@ -59,7 +59,8 @@ void solve(Span input) {
       time++;
     }
 
-    printf("%zd\n", time);
+    putu64(time);
+    putc('\n');
   }
 
   Disc new_disc = {
@@ -76,7 +77,8 @@ void solve(Span input) {
       time++;
     }
 
-    printf("%zd\n", time);
+    putu64(time);
+    putc('\n');
   }
 }
 

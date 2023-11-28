@@ -1,6 +1,4 @@
 #include "baz.h"
-#include <assert.h>
-#include <stdio.h>
 
 typedef struct {
   u64 rows[6];
@@ -8,20 +6,21 @@ typedef struct {
 
 private
 void Screen_print(const Screen *screen) {
+  String out = {0};
   for (u64 row_ix = 0; row_ix < 6; row_ix++) {
     for (u64 col_ix = 0; col_ix < 50; col_ix++) {
       bool on = ((screen->rows[row_ix] >> col_ix) & 1ull) == 1ull;
-      putc(on ? '#' : '.', stdout);
+      String_push(&out, on ? '#' : '.');
     }
-    putc('\n', stdout);
+    String_printlnc(&out);
   }
 }
 
-static int Screen_count(const Screen *screen) {
-  int count = 0;
+static usize Screen_count(const Screen *screen) {
+  usize count = 0;
 
-  for (u64 row_ix = 0; row_ix < 6; row_ix++) {
-    count += __builtin_popcountl(screen->rows[row_ix]);
+  for (usize row_ix = 0; row_ix < 6; row_ix++) {
+    count += (usize)__builtin_popcountl(screen->rows[row_ix]);
   }
 
   return count;
@@ -135,7 +134,9 @@ static void solve(Span input) {
   }
 
   Screen_print(&screen);
-  printf("%d\n", Screen_count(&screen));
+  String out = {0};
+  String_push_u64(&out, Screen_count(&screen), 10);
+  String_println(&out);
 }
 
 int main(void) {
