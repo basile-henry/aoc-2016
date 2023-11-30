@@ -60,7 +60,7 @@ void solve(Span input) {
     }
 
     putu64(time);
-    putc('\n');
+    putchar('\n');
   }
 
   Disc new_disc = {
@@ -78,7 +78,7 @@ void solve(Span input) {
     }
 
     putu64(time);
-    putc('\n');
+    putchar('\n');
   }
 }
 

@@ -31,7 +31,7 @@
 #define NULL 0
 
 // C++ already has bool defined (C++ not supported, but this keeps clangd happy)
-#ifndef __has_cpp_attribute
+#ifndef __cplusplus
 typedef _Bool bool;
 #define true 1
 #define false 0
@@ -214,11 +214,14 @@ int memcmp(const void *a, const void *b, usize bytes) {
 }
 
 private
-const u8 *memchr(const u8 *s, u8 c, usize bytes) {
+void *memchr(const void *s, int c, usize bytes) {
+  const u8 *s8 = (const u8 *)s;
+  u8 c8 = (u8)c;
+
   // naive impl
   for (usize i = 0; i < bytes; i++) {
-    if (s[i] == c) {
-      return (u8 *)((usize)s + i);
+    if (s8[i] == c8) {
+      return (void *)((usize)s + i);
     }
   }
 
@@ -369,7 +372,10 @@ i64 parse_i64(const u8 *buf, usize *buf_len, u8 base) {
 // Basic IO
 
 private
-inline void putc(u8 c) { sys_write(STDOUT, &c, 1); }
+int putchar(int c) {
+  sys_write(STDOUT, (u8 *)&c, 1);
+  return c;
+}
 
 private
 inline void putstr(const char *s) { sys_write(STDOUT, s, strlen(s)); }

@@ -44,7 +44,7 @@ static void solve(Span input, usize num_rows) {
   }
 
   putu64(width * num_rows - traps);
-  putc('\n');
+  putchar('\n');
 }
 
 int main(void) {

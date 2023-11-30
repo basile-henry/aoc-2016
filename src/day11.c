@@ -13,8 +13,8 @@ static inline u8 Item_id(Item x) { return x & 7; }
 
 static void Item_print(Item item) {
   u8 id = to_upper(Item_id(item) + 'a');
-  putc(id);
-  putc(Item_generator(item) ? 'G' : 'M');
+  putchar(id);
+  putchar(Item_generator(item) ? 'G' : 'M');
 }
 
 static inline bool Item_eq(Item a, Item b) {
@@ -81,10 +81,10 @@ static void State_print(const State *state) {
       }
 
       Item_print((Item)j);
-      putc(' ');
+      putchar(' ');
     }
 
-    putc('\n');
+    putchar('\n');
   }
 }
 
@@ -276,10 +276,10 @@ static void print_steps(const BestMoves *bm, usize ix) {
   }
 
   putu64(step.moves);
-  putc(':');
-  putc('\n');
+  putchar(':');
+  putchar('\n');
   State_print(&bm->keys[ix]);
-  putc('\n');
+  putchar('\n');
 }
 
 static void solve(State input) {

@@ -1,5 +1,5 @@
-CFLAGS = -g -O3 -std=c99 -march=native \
-	-nostdlib -nostdinc \
+CFLAGS = -g -O3 -std=c99 -march=skylake \
+	-ffreestanding -nostdlib -nostdinc \
 	-Wimplicit-fallthrough \
 	-Wall -Wextra -Wconversion -Werror
 
@@ -36,9 +36,6 @@ day15: src/day15.c
 day16: src/day16.c
 	$(CC) $(CFLAGS) src/day16.c -o day16
 
-day16-hs: src/day16.hs
-	ghc -O2 -Wall -Werror src/day16.hs -o day16-hs
-
 day18: src/day18.c
 	$(CC) $(CFLAGS) src/day18.c -o day18
 
@@ -46,11 +43,15 @@ test: src/test.c
 	$(CC) $(CFLAGS) src/test.c -o test
 
 .PHONY: all
-all: test day04 day06 day07 day08 day09 day10 day11 day12 day13 day15 day16 day16-hs day18
+all: test day04 day06 day07 day08 day09 day10 day11 day12 day13 day15 day16 day18
+
+.PHONY: run-all
+run-all:
+	./test; ./day04; ./day06; ./day07; ./day08; ./day09; ./day10; ./day11; ./day12; ./day13; ./day15; ./day16; ./day18;
 
 .PHONY: clean
 clean:
-	rm -f ./test ./day04 ./day06 ./day07 ./day08 ./day09 ./day10 ./day11 ./day12 ./day13 ./day15 ./day16 ./day16-hs ./day18
+	rm -f ./test ./day04 ./day06 ./day07 ./day08 ./day09 ./day10 ./day11 ./day12 ./day13 ./day15 ./day16 ./day18
 
 DAY?=day04
 

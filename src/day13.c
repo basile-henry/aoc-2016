@@ -89,7 +89,7 @@ usize solve(u16 seed, Pos goal) {
     if (current.moves == 50) {
       putstr("After 50 moves, visited: ");
       putu64(c->count);
-      putc('\n');
+      putchar('\n');
     }
 
     if (Pos_eq(&current.pos, &current.goal)) {
@@ -137,13 +137,13 @@ int main(void) {
       .y = 4,
   };
   putu64(solve(10, example));
-  putc('\n');
+  putchar('\n');
 
   Pos input = {
       .x = 31,
       .y = 39,
   };
   putu64(solve(1352, input));
-  putc('\n');
+  putchar('\n');
   return 0;
 }
